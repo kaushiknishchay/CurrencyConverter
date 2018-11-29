@@ -6,8 +6,10 @@
  * @flow
  */
 
-import React, {Component} from 'react';
-import {Platform, StyleSheet, Text, View} from 'react-native';
+import React, { Component } from 'react';
+import { AsyncStorage, Platform, StyleSheet, Text, View } from 'react-native';
+import exChange from './src/services/api';
+
 
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
@@ -17,13 +19,56 @@ const instructions = Platform.select({
 });
 
 type Props = {};
-export default class App extends Component<Props> {
+
+type State = {
+  conversions: any,
+}
+
+export default class App extends Component<Props, State> {
+  state = {
+    conversions: '',
+  };
+
+  getTimeDifference = (timestamp) => {
+    if (typeof  timestamp === 'number') {
+      return (Date.now() - timestamp)
+    } else {
+      return 3601;
+    }
+  };
+
+  componentDidMount = async () => {
+    const cachedConversions = JSON.parse(await AsyncStorage.getItem('conversions') || '{}');
+    console.log(cachedConversions, cachedConversions.timestamp);
+
+    if (this.getTimeDifference(cachedConversions.timestamp) > 3600) {
+      const api = new exChange();
+      api
+        .setBaseCurrency('USD')
+        .latest()
+        .then(a => {
+          const response = {
+            ...a.data,
+            timestamp: Date.now(),
+          };
+
+          this.setState({
+            conversions: response,
+          });
+
+          AsyncStorage.setItem('conversions', JSON.stringify(response));
+        })
+        .catch(e => {
+          console.log(e);
+        });
+      console.log(api.setBaseCurrency('USD'));
+    }
+  };
+
   render() {
     return (
       <View style={styles.container}>
-        <Text style={styles.welcome}>Welcome to React Native!</Text>
-        <Text style={styles.instructions}>To get started, edit App.js</Text>
-        <Text style={styles.instructions}>{instructions}</Text>
+        <Text style={styles.welcome}>{JSON.stringify(this.state.conversions)}</Text>
       </View>
     );
   }
@@ -40,10 +85,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: 'center',
     margin: 10,
-  },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
   },
 });
